@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bingo Game</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎱 Bingo!</h1>
+    </header>
+
+    <!-- Landing Page -->
+    <div id="landing-page" class="page active">
+      <h2>Welcome to Bingo!</h2>
+      <p>Create a custom bingo game or join an existing one.</p>
+      <div class="button-group">
+        <button id="host-btn" class="btn btn-primary">Host a Game</button>
+        <button id="join-btn" class="btn btn-secondary">Join a Game</button>
+      </div>
+    </div>
+
+    <!-- Host Setup Page -->
+    <div id="host-setup-page" class="page">
+      <h2>Host Setup</h2>
+      <p>Enter 24 custom values for your bingo game (one per line):</p>
+      <textarea id="values-input" placeholder="Enter one value per line...
+Example:
+Cat
+Dog
+Bird
+etc."></textarea>
+      <p class="helper-text">Need ideas? <button id="load-sample" class="btn-link">Load sample values</button></p>
+      <div id="value-count" class="value-count">0 / 24 values</div>
+      <button id="create-game-btn" class="btn btn-primary" disabled>Create Game</button>
+      <button id="back-to-landing" class="btn btn-secondary">Back</button>
+    </div>
+
+    <!-- Host Game Page -->
+    <div id="host-game-page" class="page">
+      <div class="game-header">
+        <h2>Game Code: <span id="game-code" class="game-code"></span></h2>
+        <p>Share this code with players!</p>
+        <p id="player-count">Players: 0</p>
+      </div>
+      
+      <div class="host-controls">
+        <h3>Available Values</h3>
+        <div id="available-values" class="values-grid"></div>
+        
+        <h3>Called Values</h3>
+        <div id="called-values" class="called-values"></div>
+        
+        <div class="host-buttons">
+          <button id="reset-game-btn" class="btn btn-warning">Reset Game</button>
+          <button id="end-game-btn" class="btn btn-danger">End Game</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Join Game Page -->
+    <div id="join-game-page" class="page">
+      <h2>Join a Game</h2>
+      <form id="join-form">
+        <div class="form-group">
+          <label for="player-name">Your Name:</label>
+          <input type="text" id="player-name" placeholder="Enter your name" required>
+        </div>
+        <div class="form-group">
+          <label for="game-code-input">Game Code:</label>
+          <input type="text" id="game-code-input" placeholder="Enter 4-digit code" maxlength="4" pattern="[0-9]{4}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Join Game</button>
+        <button type="button" id="back-to-landing-2" class="btn btn-secondary">Back</button>
+      </form>
+    </div>
+
+    <!-- Player Game Page -->
+    <div id="player-game-page" class="page">
+      <div class="game-header">
+        <h2>BINGO!</h2>
+        <p>Game Code: <span id="player-game-code"></span></p>
+      </div>
+      
+      <div id="bingo-board" class="bingo-board">
+        <div class="board-header">
+          <span>B</span>
+          <span>I</span>
+          <span>N</span>
+          <span>G</span>
+          <span>O</span>
+        </div>
+        <div id="board-cells" class="board-cells"></div>
+      </div>
+      
+      <button id="claim-bingo-btn" class="btn btn-bingo">BINGO!</button>
+      
+      <div class="called-section">
+        <h3>Called Values</h3>
+        <div id="player-called-values" class="called-values-small"></div>
+      </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="winner-modal" class="modal">
+      <div class="modal-content">
+        <h2>🎉 BINGO! 🎉</h2>
+        <p id="winner-name"></p>
+        <button id="close-modal" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="toast"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
