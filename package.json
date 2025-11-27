@@ -1,0 +1,17 @@
+{
+  "name": "bingo",
+  "version": "1.0.0",
+  "description": "Web-based bingo game with customizable values and real-time multiplayer support",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["bingo", "game", "multiplayer", "web"],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
