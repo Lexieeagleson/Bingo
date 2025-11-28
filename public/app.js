@@ -1,6 +1,22 @@
 // Connect to Socket.io server
 const socket = io();
 
+console.log('Bingo app initialized');
+console.log('Socket connected:', socket.connected);
+
+// Log socket connection events
+socket.on('connect', () => {
+  console.log('Socket connected successfully, ID:', socket.id);
+});
+
+socket.on('connect_error', (error) => {
+  console.error('Socket connection error:', error);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Socket disconnected:', reason);
+});
+
 // DOM Elements
 const pages = {
   landing: document.getElementById('landing-page'),
@@ -49,10 +65,12 @@ function hideModal() {
 
 // Landing Page
 document.getElementById('host-btn').addEventListener('click', () => {
+  console.log('Host a Game button clicked');
   showPage('hostSetup');
 });
 
 document.getElementById('join-btn').addEventListener('click', () => {
+  console.log('Join a Game button clicked');
   showPage('joinGame');
 });
 
@@ -85,16 +103,24 @@ function updateValueCount() {
 valuesInput.addEventListener('input', updateValueCount);
 
 createGameBtn.addEventListener('click', () => {
+  console.log('Create Game button clicked');
   const values = valuesInput.value.split('\n')
     .map(v => v.trim())
     .filter(v => v);
   
+  console.log('Values entered:', values.length, 'items');
+  console.log('Values:', values);
+  
   if (values.length >= 24) {
+    console.log('Emitting createGame event to server...');
     socket.emit('createGame', values.slice(0, 24));
+  } else {
+    console.log('Not enough values:', values.length, '(need at least 24)');
   }
 });
 
 document.getElementById('back-to-landing').addEventListener('click', () => {
+  console.log('Back button clicked (from host setup)');
   showPage('landing');
 });
 
@@ -104,12 +130,20 @@ document.getElementById('join-form').addEventListener('submit', (e) => {
   const playerName = document.getElementById('player-name').value.trim();
   const gameCode = document.getElementById('game-code-input').value.trim();
   
+  console.log('Join form submitted');
+  console.log('Player name:', playerName);
+  console.log('Game code:', gameCode);
+  
   if (playerName && gameCode.length === 4) {
+    console.log('Emitting joinGame event to server...');
     socket.emit('joinGame', { code: gameCode, playerName });
+  } else {
+    console.log('Invalid input - Name:', playerName, 'Code length:', gameCode.length);
   }
 });
 
 document.getElementById('back-to-landing-2').addEventListener('click', () => {
+  console.log('Back button clicked (from join game)');
   showPage('landing');
 });
 
@@ -129,6 +163,7 @@ function renderHostValues(values, called) {
     
     btn.addEventListener('click', () => {
       if (!called.includes(value)) {
+        console.log('Calling value:', value, 'for game:', currentGameCode);
         socket.emit('callValue', { code: currentGameCode, value });
       }
     });
@@ -146,12 +181,14 @@ function renderCalledValues(called) {
 
 document.getElementById('reset-game-btn').addEventListener('click', () => {
   if (confirm('Are you sure you want to reset the game? All players will get new boards.')) {
+    console.log('Reset game confirmed, emitting resetGame event');
     socket.emit('resetGame', currentGameCode);
   }
 });
 
 document.getElementById('end-game-btn').addEventListener('click', () => {
   if (confirm('Are you sure you want to end the game?')) {
+    console.log('End game confirmed, emitting endGame event');
     socket.emit('endGame', currentGameCode);
     showPage('landing');
     valuesInput.value = '';
@@ -182,7 +219,10 @@ function renderPlayerBoard(board, called) {
         if (!cell.classList.contains('marked')) {
           const value = board[row][col];
           if (value === 'FREE' || called.includes(value)) {
+            console.log('Marking square at row:', row, 'col:', col, 'value:', value);
             socket.emit('markSquare', { code: currentGameCode, row, col });
+          } else {
+            console.log('Cannot mark square - value not called yet:', value);
           }
         }
       });
@@ -215,6 +255,7 @@ function renderPlayerCalledValues(called) {
 }
 
 document.getElementById('claim-bingo-btn').addEventListener('click', () => {
+  console.log('Claiming BINGO for game:', currentGameCode);
   socket.emit('claimBingo', currentGameCode);
 });
 
@@ -222,6 +263,10 @@ document.getElementById('close-modal').addEventListener('click', hideModal);
 
 // Socket Events
 socket.on('gameCreated', (data) => {
+  console.log('Game created successfully!');
+  console.log('Game code:', data.code);
+  console.log('Values:', data.values);
+  
   currentGameCode = data.code;
   calledValues = [];
   
@@ -235,6 +280,11 @@ socket.on('gameCreated', (data) => {
 });
 
 socket.on('gameJoined', (data) => {
+  console.log('Successfully joined game!');
+  console.log('Game code:', data.gameCode);
+  console.log('Board:', data.board);
+  console.log('Called values:', data.calledValues);
+  
   currentGameCode = data.gameCode;
   playerBoard = data.board;
   calledValues = data.calledValues || [];
@@ -248,14 +298,20 @@ socket.on('gameJoined', (data) => {
 });
 
 socket.on('playerJoined', (data) => {
+  console.log('Player joined:', data.playerName);
+  console.log('Total players:', data.playerCount);
   document.getElementById('player-count').textContent = `Players: ${data.playerCount}`;
 });
 
 socket.on('playerLeft', (data) => {
+  console.log('Player left:', data.playerName);
+  console.log('Total players:', data.playerCount);
   document.getElementById('player-count').textContent = `Players: ${data.playerCount}`;
 });
 
 socket.on('valueCalled', (data) => {
+  console.log('Value called:', data.value);
+  console.log('All called values:', data.calledValues);
   calledValues = data.calledValues;
   
   // Update host view
@@ -271,6 +327,7 @@ socket.on('valueCalled', (data) => {
 });
 
 socket.on('squareMarked', (data) => {
+  console.log('Square marked at row:', data.row, 'col:', data.col);
   const cells = document.querySelectorAll('.cell');
   cells.forEach(cell => {
     if (parseInt(cell.dataset.row) === data.row && parseInt(cell.dataset.col) === data.col) {
@@ -281,14 +338,17 @@ socket.on('squareMarked', (data) => {
 });
 
 socket.on('bingoWinner', (data) => {
+  console.log('BINGO! Winner:', data.playerName);
   showModal(data.playerName);
 });
 
 socket.on('invalidBingo', () => {
+  console.log('Invalid bingo claim');
   showError('Not a valid BINGO! Keep playing.');
 });
 
 socket.on('gameReset', () => {
+  console.log('Game has been reset');
   calledValues = [];
   renderCalledValues([]);
   
@@ -302,6 +362,7 @@ socket.on('gameReset', () => {
 });
 
 socket.on('newBoard', (data) => {
+  console.log('Received new board:', data.board);
   playerBoard = data.board;
   calledValues = [];
   renderPlayerBoard(data.board, []);
@@ -309,15 +370,18 @@ socket.on('newBoard', (data) => {
 });
 
 socket.on('gameEnded', () => {
+  console.log('Game ended by host');
   showError('The host has ended the game.');
   showPage('landing');
 });
 
 socket.on('hostDisconnected', () => {
+  console.log('Host disconnected');
   showError('The host has disconnected. Game over.');
   showPage('landing');
 });
 
 socket.on('error', (message) => {
+  console.error('Error from server:', message);
   showError(message);
 });
