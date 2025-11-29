@@ -4,10 +4,29 @@ let connectionAttempts = 0;
 const MAX_CONNECTION_ATTEMPTS = 3;
 let socket = null;
 
+// Check if connected to server - returns true if connected, false otherwise
+function validateConnection(showErrorMessage = true) {
+  if (!socket || !isConnected) {
+    if (showErrorMessage) {
+      console.log('Not connected to server, showing error');
+      showError('Not connected to server. Please ensure the server is running.');
+      showConnectionError();
+    }
+    return false;
+  }
+  return true;
+}
+
 // Show connection error banner
 function showConnectionError() {
   let banner = document.getElementById('connection-error-banner');
   if (!banner) {
+    const container = document.querySelector('.container');
+    const header = document.querySelector('header');
+    if (!container || !header) {
+      console.error('Cannot show connection error banner: container or header not found');
+      return;
+    }
     banner = document.createElement('div');
     banner.id = 'connection-error-banner';
     banner.className = 'connection-error';
@@ -16,7 +35,7 @@ function showConnectionError() {
       <p>Cannot connect to the game server. This app requires a running server to function.</p>
       <p>If you're viewing this on GitHub Pages, please run the server locally with <code>npm start</code></p>
     `;
-    document.querySelector('.container').insertBefore(banner, document.querySelector('header').nextSibling);
+    container.insertBefore(banner, header.nextSibling);
   }
   banner.style.display = 'block';
 }
@@ -162,10 +181,7 @@ createGameBtn.addEventListener('click', () => {
   console.log('Create Game button clicked');
   
   // Check if connected to server
-  if (!isConnected || !socket) {
-    console.log('Not connected to server, showing error');
-    showError('Cannot create game: Not connected to server. Please ensure the server is running.');
-    showConnectionError();
+  if (!validateConnection()) {
     return;
   }
   
@@ -194,10 +210,7 @@ document.getElementById('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
   
   // Check if connected to server
-  if (!isConnected || !socket) {
-    console.log('Not connected to server, showing error');
-    showError('Cannot join game: Not connected to server. Please ensure the server is running.');
-    showConnectionError();
+  if (!validateConnection()) {
     return;
   }
   
@@ -236,7 +249,7 @@ function renderHostValues(values, called) {
     }
     
     btn.addEventListener('click', () => {
-      if (!called.includes(value) && socket && isConnected) {
+      if (!called.includes(value) && validateConnection(false)) {
         console.log('Calling value:', value, 'for game:', currentGameCode);
         socket.emit('callValue', { code: currentGameCode, value });
       }
@@ -255,7 +268,7 @@ function renderCalledValues(called) {
 
 document.getElementById('reset-game-btn').addEventListener('click', () => {
   if (confirm('Are you sure you want to reset the game? All players will get new boards.')) {
-    if (socket && isConnected) {
+    if (validateConnection(false)) {
       console.log('Reset game confirmed, emitting resetGame event');
       socket.emit('resetGame', currentGameCode);
     }
@@ -264,7 +277,7 @@ document.getElementById('reset-game-btn').addEventListener('click', () => {
 
 document.getElementById('end-game-btn').addEventListener('click', () => {
   if (confirm('Are you sure you want to end the game?')) {
-    if (socket && isConnected) {
+    if (validateConnection(false)) {
       console.log('End game confirmed, emitting endGame event');
       socket.emit('endGame', currentGameCode);
     }
@@ -294,7 +307,7 @@ function renderPlayerBoard(board, called) {
       }
       
       cell.addEventListener('click', () => {
-        if (!cell.classList.contains('marked') && socket && isConnected) {
+        if (!cell.classList.contains('marked') && validateConnection(false)) {
           const value = board[row][col];
           if (value === 'FREE' || called.includes(value)) {
             console.log('Marking square at row:', row, 'col:', col, 'value:', value);
@@ -333,11 +346,9 @@ function renderPlayerCalledValues(called) {
 }
 
 document.getElementById('claim-bingo-btn').addEventListener('click', () => {
-  if (socket && isConnected) {
+  if (validateConnection()) {
     console.log('Claiming BINGO for game:', currentGameCode);
     socket.emit('claimBingo', currentGameCode);
-  } else {
-    showError('Not connected to server.');
   }
 });
 
