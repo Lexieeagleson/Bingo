@@ -1,21 +1,77 @@
-// Connect to Socket.io server
-const socket = io();
+// Connection state
+let isConnected = false;
+let connectionAttempts = 0;
+const MAX_CONNECTION_ATTEMPTS = 3;
+let socket = null;
 
-console.log('Bingo app initialized');
-console.log('Socket connected:', socket.connected);
+// Show connection error banner
+function showConnectionError() {
+  let banner = document.getElementById('connection-error-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'connection-error-banner';
+    banner.className = 'connection-error';
+    banner.innerHTML = `
+      <strong>⚠️ Server Unavailable</strong>
+      <p>Cannot connect to the game server. This app requires a running server to function.</p>
+      <p>If you're viewing this on GitHub Pages, please run the server locally with <code>npm start</code></p>
+    `;
+    document.querySelector('.container').insertBefore(banner, document.querySelector('header').nextSibling);
+  }
+  banner.style.display = 'block';
+}
 
-// Log socket connection events
-socket.on('connect', () => {
-  console.log('Socket connected successfully, ID:', socket.id);
-});
+// Hide connection error banner
+function hideConnectionError() {
+  const banner = document.getElementById('connection-error-banner');
+  if (banner) {
+    banner.style.display = 'none';
+  }
+}
 
-socket.on('connect_error', (error) => {
-  console.error('Socket connection error:', error);
-});
+// Initialize Socket.io connection
+try {
+  if (typeof io === 'undefined') {
+    throw new Error('Socket.io client not available');
+  }
+  
+  socket = io();
+  
+  console.log('Bingo app initialized');
+  console.log('Socket connected:', socket.connected);
 
-socket.on('disconnect', (reason) => {
-  console.log('Socket disconnected:', reason);
-});
+  // Log socket connection events
+  socket.on('connect', () => {
+    console.log('Socket connected successfully, ID:', socket.id);
+    isConnected = true;
+    connectionAttempts = 0;
+    hideConnectionError();
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket connection error:', error);
+    isConnected = false;
+    connectionAttempts++;
+    
+    if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
+      showConnectionError();
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Socket disconnected:', reason);
+    isConnected = false;
+  });
+} catch (error) {
+  console.error('Failed to initialize Socket.io:', error);
+  isConnected = false;
+  // Show error after page loads
+  document.addEventListener('DOMContentLoaded', showConnectionError);
+  // Also try immediately in case DOM is already loaded
+  if (document.readyState !== 'loading') {
+    showConnectionError();
+  }
+}
 
 // DOM Elements
 const pages = {
@@ -104,6 +160,15 @@ valuesInput.addEventListener('input', updateValueCount);
 
 createGameBtn.addEventListener('click', () => {
   console.log('Create Game button clicked');
+  
+  // Check if connected to server
+  if (!isConnected || !socket) {
+    console.log('Not connected to server, showing error');
+    showError('Cannot create game: Not connected to server. Please ensure the server is running.');
+    showConnectionError();
+    return;
+  }
+  
   const values = valuesInput.value.split('\n')
     .map(v => v.trim())
     .filter(v => v);
@@ -127,6 +192,15 @@ document.getElementById('back-to-landing').addEventListener('click', () => {
 // Join Game Page
 document.getElementById('join-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  
+  // Check if connected to server
+  if (!isConnected || !socket) {
+    console.log('Not connected to server, showing error');
+    showError('Cannot join game: Not connected to server. Please ensure the server is running.');
+    showConnectionError();
+    return;
+  }
+  
   const playerName = document.getElementById('player-name').value.trim();
   const gameCode = document.getElementById('game-code-input').value.trim();
   
@@ -162,7 +236,7 @@ function renderHostValues(values, called) {
     }
     
     btn.addEventListener('click', () => {
-      if (!called.includes(value)) {
+      if (!called.includes(value) && socket && isConnected) {
         console.log('Calling value:', value, 'for game:', currentGameCode);
         socket.emit('callValue', { code: currentGameCode, value });
       }
@@ -181,15 +255,19 @@ function renderCalledValues(called) {
 
 document.getElementById('reset-game-btn').addEventListener('click', () => {
   if (confirm('Are you sure you want to reset the game? All players will get new boards.')) {
-    console.log('Reset game confirmed, emitting resetGame event');
-    socket.emit('resetGame', currentGameCode);
+    if (socket && isConnected) {
+      console.log('Reset game confirmed, emitting resetGame event');
+      socket.emit('resetGame', currentGameCode);
+    }
   }
 });
 
 document.getElementById('end-game-btn').addEventListener('click', () => {
   if (confirm('Are you sure you want to end the game?')) {
-    console.log('End game confirmed, emitting endGame event');
-    socket.emit('endGame', currentGameCode);
+    if (socket && isConnected) {
+      console.log('End game confirmed, emitting endGame event');
+      socket.emit('endGame', currentGameCode);
+    }
     showPage('landing');
     valuesInput.value = '';
     updateValueCount();
@@ -216,7 +294,7 @@ function renderPlayerBoard(board, called) {
       }
       
       cell.addEventListener('click', () => {
-        if (!cell.classList.contains('marked')) {
+        if (!cell.classList.contains('marked') && socket && isConnected) {
           const value = board[row][col];
           if (value === 'FREE' || called.includes(value)) {
             console.log('Marking square at row:', row, 'col:', col, 'value:', value);
@@ -255,133 +333,139 @@ function renderPlayerCalledValues(called) {
 }
 
 document.getElementById('claim-bingo-btn').addEventListener('click', () => {
-  console.log('Claiming BINGO for game:', currentGameCode);
-  socket.emit('claimBingo', currentGameCode);
+  if (socket && isConnected) {
+    console.log('Claiming BINGO for game:', currentGameCode);
+    socket.emit('claimBingo', currentGameCode);
+  } else {
+    showError('Not connected to server.');
+  }
 });
 
 document.getElementById('close-modal').addEventListener('click', hideModal);
 
-// Socket Events
-socket.on('gameCreated', (data) => {
-  console.log('Game created successfully!');
-  console.log('Game code:', data.code);
-  console.log('Values:', data.values);
-  
-  currentGameCode = data.code;
-  calledValues = [];
-  
-  document.getElementById('game-code').textContent = data.code;
-  document.getElementById('player-count').textContent = 'Players: 0';
-  
-  renderHostValues(data.values, []);
-  renderCalledValues([]);
-  
-  showPage('hostGame');
-});
+// Socket Events - only register if socket is available
+if (socket) {
+  socket.on('gameCreated', (data) => {
+    console.log('Game created successfully!');
+    console.log('Game code:', data.code);
+    console.log('Values:', data.values);
+    
+    currentGameCode = data.code;
+    calledValues = [];
+    
+    document.getElementById('game-code').textContent = data.code;
+    document.getElementById('player-count').textContent = 'Players: 0';
+    
+    renderHostValues(data.values, []);
+    renderCalledValues([]);
+    
+    showPage('hostGame');
+  });
 
-socket.on('gameJoined', (data) => {
-  console.log('Successfully joined game!');
-  console.log('Game code:', data.gameCode);
-  console.log('Board:', data.board);
-  console.log('Called values:', data.calledValues);
-  
-  currentGameCode = data.gameCode;
-  playerBoard = data.board;
-  calledValues = data.calledValues || [];
-  
-  document.getElementById('player-game-code').textContent = data.gameCode;
-  
-  renderPlayerBoard(data.board, calledValues);
-  renderPlayerCalledValues(calledValues);
-  
-  showPage('playerGame');
-});
+  socket.on('gameJoined', (data) => {
+    console.log('Successfully joined game!');
+    console.log('Game code:', data.gameCode);
+    console.log('Board:', data.board);
+    console.log('Called values:', data.calledValues);
+    
+    currentGameCode = data.gameCode;
+    playerBoard = data.board;
+    calledValues = data.calledValues || [];
+    
+    document.getElementById('player-game-code').textContent = data.gameCode;
+    
+    renderPlayerBoard(data.board, calledValues);
+    renderPlayerCalledValues(calledValues);
+    
+    showPage('playerGame');
+  });
 
-socket.on('playerJoined', (data) => {
-  console.log('Player joined:', data.playerName);
-  console.log('Total players:', data.playerCount);
-  document.getElementById('player-count').textContent = `Players: ${data.playerCount}`;
-});
+  socket.on('playerJoined', (data) => {
+    console.log('Player joined:', data.playerName);
+    console.log('Total players:', data.playerCount);
+    document.getElementById('player-count').textContent = `Players: ${data.playerCount}`;
+  });
 
-socket.on('playerLeft', (data) => {
-  console.log('Player left:', data.playerName);
-  console.log('Total players:', data.playerCount);
-  document.getElementById('player-count').textContent = `Players: ${data.playerCount}`;
-});
+  socket.on('playerLeft', (data) => {
+    console.log('Player left:', data.playerName);
+    console.log('Total players:', data.playerCount);
+    document.getElementById('player-count').textContent = `Players: ${data.playerCount}`;
+  });
 
-socket.on('valueCalled', (data) => {
-  console.log('Value called:', data.value);
-  console.log('All called values:', data.calledValues);
-  calledValues = data.calledValues;
-  
-  // Update host view
-  const hostValues = document.getElementById('available-values');
-  if (hostValues.children.length > 0) {
-    renderHostValues(Array.from(hostValues.children).map(b => b.textContent), calledValues);
-    renderCalledValues(calledValues);
-  }
-  
-  // Update player view
-  updateCallableSquares();
-  renderPlayerCalledValues(calledValues);
-});
+  socket.on('valueCalled', (data) => {
+    console.log('Value called:', data.value);
+    console.log('All called values:', data.calledValues);
+    calledValues = data.calledValues;
+    
+    // Update host view
+    const hostValues = document.getElementById('available-values');
+    if (hostValues.children.length > 0) {
+      renderHostValues(Array.from(hostValues.children).map(b => b.textContent), calledValues);
+      renderCalledValues(calledValues);
+    }
+    
+    // Update player view
+    updateCallableSquares();
+    renderPlayerCalledValues(calledValues);
+  });
 
-socket.on('squareMarked', (data) => {
-  console.log('Square marked at row:', data.row, 'col:', data.col);
-  const cells = document.querySelectorAll('.cell');
-  cells.forEach(cell => {
-    if (parseInt(cell.dataset.row) === data.row && parseInt(cell.dataset.col) === data.col) {
-      cell.classList.add('marked');
-      cell.classList.remove('callable');
+  socket.on('squareMarked', (data) => {
+    console.log('Square marked at row:', data.row, 'col:', data.col);
+    const cells = document.querySelectorAll('.cell');
+    cells.forEach(cell => {
+      if (parseInt(cell.dataset.row) === data.row && parseInt(cell.dataset.col) === data.col) {
+        cell.classList.add('marked');
+        cell.classList.remove('callable');
+      }
+    });
+  });
+
+  socket.on('bingoWinner', (data) => {
+    console.log('BINGO! Winner:', data.playerName);
+    showModal(data.playerName);
+  });
+
+  socket.on('invalidBingo', () => {
+    console.log('Invalid bingo claim');
+    showError('Not a valid BINGO! Keep playing.');
+  });
+
+  socket.on('gameReset', () => {
+    console.log('Game has been reset');
+    calledValues = [];
+    renderCalledValues([]);
+    
+    // Host will receive updated values
+    const hostValues = document.getElementById('available-values');
+    if (hostValues.children.length > 0) {
+      Array.from(hostValues.children).forEach(btn => {
+        btn.classList.remove('called');
+      });
     }
   });
-});
 
-socket.on('bingoWinner', (data) => {
-  console.log('BINGO! Winner:', data.playerName);
-  showModal(data.playerName);
-});
+  socket.on('newBoard', (data) => {
+    console.log('Received new board:', data.board);
+    playerBoard = data.board;
+    calledValues = [];
+    renderPlayerBoard(data.board, []);
+    renderPlayerCalledValues([]);
+  });
 
-socket.on('invalidBingo', () => {
-  console.log('Invalid bingo claim');
-  showError('Not a valid BINGO! Keep playing.');
-});
+  socket.on('gameEnded', () => {
+    console.log('Game ended by host');
+    showError('The host has ended the game.');
+    showPage('landing');
+  });
 
-socket.on('gameReset', () => {
-  console.log('Game has been reset');
-  calledValues = [];
-  renderCalledValues([]);
-  
-  // Host will receive updated values
-  const hostValues = document.getElementById('available-values');
-  if (hostValues.children.length > 0) {
-    Array.from(hostValues.children).forEach(btn => {
-      btn.classList.remove('called');
-    });
-  }
-});
+  socket.on('hostDisconnected', () => {
+    console.log('Host disconnected');
+    showError('The host has disconnected. Game over.');
+    showPage('landing');
+  });
 
-socket.on('newBoard', (data) => {
-  console.log('Received new board:', data.board);
-  playerBoard = data.board;
-  calledValues = [];
-  renderPlayerBoard(data.board, []);
-  renderPlayerCalledValues([]);
-});
-
-socket.on('gameEnded', () => {
-  console.log('Game ended by host');
-  showError('The host has ended the game.');
-  showPage('landing');
-});
-
-socket.on('hostDisconnected', () => {
-  console.log('Host disconnected');
-  showError('The host has disconnected. Game over.');
-  showPage('landing');
-});
-
-socket.on('error', (message) => {
-  console.error('Error from server:', message);
-  showError(message);
-});
+  socket.on('error', (message) => {
+    console.error('Error from server:', message);
+    showError(message);
+  });
+}
