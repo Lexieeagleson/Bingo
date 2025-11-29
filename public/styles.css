@@ -461,6 +461,35 @@ textarea:focus {
   opacity: 1;
 }
 
+/* Connection Error Banner */
+.connection-error {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #856404;
+}
+
+.connection-error strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.connection-error p {
+  margin: 4px 0;
+  color: #856404;
+}
+
+.connection-error code {
+  background: #ffeaa7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
 /* Responsive */
 @media (max-width: 400px) {
   .container {
